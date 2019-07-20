@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Event used in test class for LogPlatformEventsService. This is not essential for deploying this service, you can alter the LogPlatformEventsServiceTest class to use an event(s) that will exist in your environments.
+
+Bear in mind that there are maximum Platform Event Definition limits for all environments which are documented here: https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_event_limits.htm</description>
+    <eventType>HighVolume</eventType>
+    <label>LogPlatformEventsServiceTestEvent</label>
+    <pluralLabel>LogPlatformEventsServiceTestEvents</pluralLabel>
+</CustomObject>

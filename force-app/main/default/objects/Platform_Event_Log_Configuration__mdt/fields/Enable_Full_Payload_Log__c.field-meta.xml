@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Enable_Full_Payload_Log__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Platform Events may include sensitive information. By disabling this checkbox the log will not include the full Platform Event payload. Only the individual fields configured for logging will be available.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Platform Events may include sensitive information. By disabling this checkbox the log will not include the full Platform Event payload. Only the individual fields configured for logging will be available.</inlineHelpText>
+    <label>Enable Full Payload Log</label>
+    <type>Checkbox</type>
+</CustomField>

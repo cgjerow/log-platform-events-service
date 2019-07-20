@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Field_Logs__c</fullName>
+    <description>Comma separated list of Platform Event Field API names to be logged in Platform Event Field Log object on parent Platform Event Log record</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Comma separated list of Platform Event Field API names to be logged in Platform Event Field Log object on parent Platform Event Log record</inlineHelpText>
+    <label>Field Logs</label>
+    <length>500</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

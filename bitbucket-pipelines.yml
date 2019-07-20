@@ -1,0 +1,29 @@
+# CI process for SFDX
+image: grigri/docker-image:latest #image with sfdx installed
+pipelines:
+  default: #this will run for all branches unless specificed otherwise
+    - step:
+        script:
+          #===login===
+          - openssl enc -d -aes-256-cbc -in build/server.key.enc -out build/server.key -K $AESKEY -iv $IVKEY #deencrypt server.key
+          - sfdx force:auth:jwt:grant --clientid $CONSUMERKEY --jwtkeyfile build/server.key --username $USERNAME
+          #===lint lightning===
+          - sfdx force:lightning:lint src/aura/
+          #===convert to legacy format===
+          - sfdx force:source:convert --outputdir ../src/ --rootdir force-app/
+          #===get test results===
+          - sfdx force:mdapi:deploy --deploydir ../src/ --wait 15 --testlevel RunLocalTests --targetusername $USERNAME --checkonly
+          
+  branches:
+    master: #anything committed to master should be deploy to prod
+      - step:
+          script:
+            #===login===
+            - openssl enc -d -aes-256-cbc -in build/server.key.enc -out build/server.key -K $AESKEY -iv $IVKEY #deencrypt server.key
+            - sfdx force:auth:jwt:grant --clientid $CONSUMERKEY --jwtkeyfile build/server.key --username $USERNAME
+            #===lint lightning===
+            - sfdx force:lightning:lint src/aura/
+            #===convert to legacy format===
+            - sfdx force:source:convert --outputdir ../src/ --rootdir force-app/
+            #===deploy===
+            - sfdx force:mdapi:deploy --deploydir ../src/ --wait 15 --testlevel RunLocalTests --targetusername $USERNAME
