@@ -6,6 +6,7 @@ global without sharing class LogPlatformEventsService
     private platform_event_log__c[] logs;
     private map<string,list<platform_event_log_field__c>> replayidToFieldLogs;
     private list<platform_event_log_field__c> fieldlogs;
+    protected map<string,fieldsetting> fieldPathToSettings;
 
     @testvisible private static final string EMPTY_EVENT_LIST_MESSAGE;
     @testvisible private static final string DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE;
@@ -16,7 +17,7 @@ global without sharing class LogPlatformEventsService
 
     static 
     {
-        // could make these messages configurable with custom setting or alternative feature
+        // could make these messages configurable with custom setting or custom labels
         EMPTY_EVENT_LIST_MESSAGE = 'EMPTY_EVENT_LIST: The platform event list provided was empty';
         DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE = 'DUPLICATE_PLATFORM_EVENT_CONFIGURATIONS: Multiple Platform Event Log Configuration metadata records are active for ';
         NO_EVENT_CONFIGURATIONS_MESSAGE = 'NO_PLATFORM_EVENT_CONFIGURATIONS: No Platform Event Log Configuration metadata record exists for ';
@@ -41,6 +42,7 @@ global without sharing class LogPlatformEventsService
                                                 enable_log_records__c,
                                                 enable_full_payload_log__c,
                                                 field_logs__c,
+                                                publishing_user_field__c,
                                                 Platform_Event_Type_API_Name__c
                                                 from platform_event_log_configuration__mdt
                                                 where Platform_Event_Type_API_Name__c=:eventType
@@ -100,26 +102,34 @@ global without sharing class LogPlatformEventsService
         if (this.config==null || !this.config.is_active__c)
             return;
 
+        id pubishingUser;
         this.logs = new list<platform_event_log__c>();
         this.replayidToFieldLogs = new map<string,list<platform_event_log_field__c>>();
         list<string> fieldsToLog = this.config.field_logs__c.split(',');
+        this.fieldPathToSettings = new map<string,fieldsetting>();
+
+
+        for (string fieldPath : fieldsToLog)
+        {
+            if (!String.isBlank(fieldPath))
+                this.setLogField(fieldPath);
+        }
+
+        if (!String.isBlank(this.config.publishing_user_field__c))
+            this.setPublishingUserField(this.config.publishing_user_field__c);
 
 
         // build platform_event_log and platform_event_log_field records
-        for (SObject event : newlist)
+        for (SObject event : this.newlist)
         {
-            this.logs.add(new platform_event_log__c(
-                name = this.config.Platform_Event_Type_API_Name__c+' - '+event.get('replayid'),
-                replayid__c = (string)event.get('replayid'),
-                platform_event_type__c = this.config.Platform_Event_Type_API_Name__c,
-                platform_event_payload__c = config.enable_full_payload_log__c ? 
-                                            String.valueOf(event) : DISABLED_PAYLOAD_LOG_MESSSAGE
-            ));
+            id publishingUser;
+            platform_event_log_field__c[] fields = new list<platform_event_log_field__c>();
 
             // iterate through all fields to log
-            platform_event_log_field__c[] fields = new list<platform_event_log_field__c>();
-            for (string field : fieldsToLog)
+            for (FieldSetting fs : fieldPathToSettings.values())
             {
+                System.debug('FIELD SETTING : '+fs);
+                string field = fs.fieldPath;
                 string value;
                 map<string,object> nestedObj;
 
@@ -164,15 +174,30 @@ global without sharing class LogPlatformEventsService
                         break;
                 }
 
-                fields.add(new platform_event_log_field__c(
-                    name = field+' - '+event.get('replayid'),
-                    field_name__c = field,
-                    field_value__c = value
-                ));
+                // allow admin to configure what field to use to populate publishing_user__c
+                if (fs.isPublishingUserField)
+                    publishingUser = this.getUserId(value);
+
+                if (fs.isLogField)
+                    fields.add(new platform_event_log_field__c(
+                        name = field+' - '+event.get('replayid'),
+                        field_name__c = field,
+                        field_value__c = value
+                    ));
             }
+
+            this.logs.add(new platform_event_log__c(
+                name = this.config.Platform_Event_Type_API_Name__c+' - '+event.get('replayid'),
+                replayid__c = (string)event.get('replayid'),                
+                platform_event_type__c = this.config.Platform_Event_Type_API_Name__c,
+                publishing_user__c = (id) ( this.config.publishing_user_field__c==null ? 
+                                            event.get('createdbyid') : publishingUser ),
+                platform_event_payload__c = config.enable_full_payload_log__c ? 
+                                            String.valueOf(event) : DISABLED_PAYLOAD_LOG_MESSSAGE
+            ));
+
             this.replayidToFieldLogs.put((string)event.get('replayid'),fields);
         }
-
     }
 
 
@@ -201,6 +226,68 @@ global without sharing class LogPlatformEventsService
     {
         for (platform_event_log__c log : this.logs)
             System.debug(System.LoggingLevel.FINE, log);
+    }
+
+
+    // Validate id string and return valid id or null
+    private id getUserId(string idstring)
+    {
+        try {
+            return ((id)idstring).getSobjectType().getDescribe().getName()=='User' ? idstring : null;
+        } catch (exception e) {
+            System.debug('Invalid User Id Value');
+            System.debug(e.getMessage());
+            return null;
+        }
+    }
+
+
+    private void setPublishingUserField(string fieldPath)
+    {
+        if (String.isBlank(fieldPath))
+            return;
+
+        FieldSetting fieldSetting = getFieldSetting(fieldPath);
+        fieldSetting.setPublishingUserField();
+        this.fieldPathToSettings.put(fieldPath,fieldSetting);
+    }
+
+    private void setLogField(string fieldPath)
+    {
+        if (String.isBlank(fieldPath))
+            return;
+
+        FieldSetting fieldSetting = getFieldSetting(fieldPath);
+        fieldSetting.setLogField();
+        this.fieldPathToSettings.put(fieldPath,fieldSetting);
+    }
+
+    private FieldSetting getFieldSetting(string fieldPath)
+    {
+        return this.fieldPathToSettings.get(fieldPath)!=null ? this.fieldPathToSettings.get(fieldPath) : new FieldSetting(fieldPath);
+    }
+
+
+    private class FieldSetting
+    {
+        private final string fieldPath;
+        private boolean isPublishingUserField = false;
+        private boolean isLogField = false;
+
+        private FieldSetting(string fieldPath)
+        {
+            this.fieldPath = fieldPath;
+        }
+
+        private void setLogField()
+        {
+            this.isLogField=true;
+        }
+
+        private void setPublishingUserField()
+        {
+            this.isPublishingUserField=true;
+        }
     }
 
     global class PlatformEventLogException extends Exception {}
