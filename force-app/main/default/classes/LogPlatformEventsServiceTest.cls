@@ -16,11 +16,8 @@ global class LogPlatformEventsServiceTest
 
 
     /* 
-    * In order to support faster and more controllable unit tests
-    * this test class uses record / event mocking
-    * 
     * Leveraging the JSON.deserialize() method allows us to work 
-    * around "Field Not Writable" limitations 
+    * around "Field Not Writable" limitations for mock data
     */
 
     private static void createPlatformEventList()
