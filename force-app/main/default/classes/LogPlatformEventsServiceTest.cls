@@ -94,7 +94,7 @@ global class LogPlatformEventsServiceTest
         test.stopTest();
 
         System.assert(emptyListException!=null);
-        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE));
+        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE.split(':')[0]));
     }
 
     @isTest
@@ -113,7 +113,7 @@ global class LogPlatformEventsServiceTest
         test.stopTest();
 
         System.assert(emptyListException!=null);
-        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE));
+        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE.split(':')[0]));
     }
 
     @isTest
@@ -134,7 +134,7 @@ global class LogPlatformEventsServiceTest
         test.stopTest();
 
         System.assert(emptyListException!=null);
-        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.NO_EVENT_CONFIGURATIONS_MESSAGE));
+        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.NO_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
     }
 
     @isTest
@@ -156,7 +156,7 @@ global class LogPlatformEventsServiceTest
         test.stopTest();
 
         System.assert(emptyListException!=null);
-        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE));
+        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
     }
 
     @isTest
@@ -204,7 +204,7 @@ global class LogPlatformEventsServiceTest
         test.stopTest();
 
         System.assert(emptyListException!=null);
-        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE));
+        System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
     }
 
     @isTest
@@ -345,7 +345,7 @@ global class LogPlatformEventsServiceTest
         for (platform_event_log_field__c eventLogField : eventLogFields) 
         {
             System.assertEquals('JsonTextField__c.ErrorField__c',eventLogField.field_name__c);
-            System.assert(eventLogField.field_value__c.contains(LogPlatformEventsService.JSON_PARSE_ERROR_MESSAGE));
+            System.assert(eventLogField.field_value__c.contains(LogPlatformEventsService.JSON_PARSE_ERROR_MESSAGE.split(':')[0]));
         }
     }
 

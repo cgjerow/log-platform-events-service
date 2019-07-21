@@ -17,13 +17,12 @@ global without sharing class LogPlatformEventsService
 
     static 
     {
-        // could make these messages configurable with custom setting or custom labels
-        EMPTY_EVENT_LIST_MESSAGE = 'EMPTY_EVENT_LIST: The platform event list provided was empty';
-        DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE = 'DUPLICATE_PLATFORM_EVENT_CONFIGURATIONS: Multiple Platform Event Log Configuration metadata records are active for ';
-        NO_EVENT_CONFIGURATIONS_MESSAGE = 'NO_PLATFORM_EVENT_CONFIGURATIONS: No Platform Event Log Configuration metadata record exists for ';
-        JSON_PARSE_ERROR_MESSAGE = 'JSON_PARSE_ERROR: Could not parse JSON for this field. Review Payload on Platform Event Log.';
-        INVALID_EVENT_FIELD_MESSAGE = 'INVALID_EVENT_FIELD: The following field does not exist on ';
-        DISABLED_PAYLOAD_LOG_MESSSAGE = 'DISABLED_PAYLOAD_LOG: Payload logging disabled for active configuration. Related Platform Event Log Fields are still generated.';
+        EMPTY_EVENT_LIST_MESSAGE = 'EMPTY_EVENT_LIST: '+Label.lpes_empty_event_list_message;
+        DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE = 'DUPLICATE_PLATFORM_EVENT_CONFIGURATIONS: '+Label.lpes_duplicate_event_configurations_message;
+        NO_EVENT_CONFIGURATIONS_MESSAGE = 'NO_PLATFORM_EVENT_CONFIGURATIONS: '+Label.lpes_no_event_configurations_message;
+        JSON_PARSE_ERROR_MESSAGE = 'JSON_PARSE_ERROR: '+Label.lpes_json_parse_error_message;
+        INVALID_EVENT_FIELD_MESSAGE = 'INVALID_EVENT_FIELD: '+Label.lpes_invalid_event_field_message;
+        DISABLED_PAYLOAD_LOG_MESSSAGE = 'DISABLED_PAYLOAD_LOG: '+Label.lpes_disabled_payload_log_message;
     }
 
     global LogPlatformEventsService(list<sobject> newlist)
@@ -56,7 +55,7 @@ global without sharing class LogPlatformEventsService
 
         // At least one configuration is required, otherwise throw exception to alert admin
         if (eventLogConfigurations.size()==0)
-            throw new PlatformEventLogException(NO_EVENT_CONFIGURATIONS_MESSAGE+eventType);
+            throw new PlatformEventLogException(String.format(NO_EVENT_CONFIGURATIONS_MESSAGE,new list<string>{eventType}));
 
         // Multiple *active* configurations also throw exception to alert admin.
         // No exception is thrown if all are inactive.
@@ -68,7 +67,7 @@ global without sharing class LogPlatformEventsService
             {
                 activeConfigurations+=1;
                 if (activeConfigurations>1)
-                    throw new PlatformEventLogException(DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE+eventType);
+                    throw new PlatformEventLogException(String.format(DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE,new list<string>{eventType}));
 
                 this.config = eventConfig;
             }
@@ -154,7 +153,7 @@ global without sharing class LogPlatformEventsService
                             } catch(SObjectException e) {
                                 System.debug(e.getMessage());
                                 System.debug(INVALID_EVENT_FIELD_MESSAGE);
-                                value = INVALID_EVENT_FIELD_MESSAGE + this.config.Platform_Event_Type_API_Name__c + ': ' + field;
+                                value = String.format(INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,this.config.Platform_Event_Type_API_Name__c});
                                 break;
                             }
                             

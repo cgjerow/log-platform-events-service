@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <labels>
+        <fullName>lpes_disabled_payload_log_message</fullName>
+        <categories>LogPlatformEventService</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Message displayed in Payload field when PE payload logging is disabled</shortDescription>
+        <value>Payload logging disabled for active configuration. Related Platform Event Log Fields are still generated.</value>
+    </labels>
+    <labels>
+        <fullName>lpes_duplicate_event_configurations_message</fullName>
+        <categories>LogPlatformEventService,Exception</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Exception message thrown when multiple configurations are active for this PE</shortDescription>
+        <value>Multiple Platform Event Log Configuration metadata records are active for {0}</value>
+    </labels>
+    <labels>
+        <fullName>lpes_empty_event_list_message</fullName>
+        <categories>LogPlatformEventService,Exception</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Exception message thrown when Log Platform Event Service is passed an empty list</shortDescription>
+        <value>The platform event list provided was empty</value>
+    </labels>
+    <labels>
+        <fullName>lpes_invalid_event_field_message</fullName>
+        <categories>LogPlatformEventService,Exception</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Exception message thrown when field in log list does not exist on PE</shortDescription>
+        <value>{0} does not exist on {1}</value>
+    </labels>
+    <labels>
+        <fullName>lpes_json_parse_error_message</fullName>
+        <categories>LogPlatformEventService,Exception</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error message logged for JSON parsing error</shortDescription>
+        <value>Could not parse JSON for this field. Review Payload on Platform Event Log.</value>
+    </labels>
+    <labels>
+        <fullName>lpes_no_event_configurations_message</fullName>
+        <categories>LogPlatformEventService,Exception</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Exception message thrown when no configurations exist for this PE</shortDescription>
+        <value>No Platform Event Log Configuration metadata record exists for {0}</value>
+    </labels>
+</CustomLabels>
