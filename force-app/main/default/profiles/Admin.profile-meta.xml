@@ -14,6 +14,7 @@
         <field>LogPlatformEventsServiceTestEvent__e.JsonTextField__c</field>
         <readable>false</readable>
     </fieldPermissions>
+    <fieldPermissions>
         <editable>false</editable>
         <field>Platform_Event_Log_Configuration__mdt.Enable_Debug__c</field>
         <readable>false</readable>
@@ -59,15 +60,6 @@
         <readable>true</readable>
     </fieldPermissions>
     <layoutAssignments>
-        <layout>Platform_Event_Log_Configuration__mdt-Platform Event Log Configuration Layout</layout>
-    </layoutAssignments>
-    <layoutAssignments>
-        <layout>Platform_Event_Log_Field_Configuration__mdt-Platform Event Log Field Configuration Layout</layout>
-    </layoutAssignments>
-    <layoutAssignments>
-        <layout>Platform_Event_Log_Field__c-Platform Event Log Field Layout</layout>
-    </layoutAssignments>
-    <layoutAssignments>
         <layout>Platform_Event_Log__c-Platform Event Log Layout</layout>
     </layoutAssignments>
     <objectPermissions>
@@ -96,6 +88,6 @@
         <modifyAllRecords>true</modifyAllRecords>
         <object>Platform_Event_Log__c</object>
         <viewAllRecords>true</viewAllRecords>
-    </objectPermissions
+    </objectPermissions>
     <userLicense>Salesforce</userLicense>
 </Profile>

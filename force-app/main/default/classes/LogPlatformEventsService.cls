@@ -17,6 +17,7 @@ global without sharing class LogPlatformEventsService
 
     static 
     {
+        // could make these messages configurable with custom setting or custom labels
         EMPTY_EVENT_LIST_MESSAGE = 'EMPTY_EVENT_LIST: '+Label.lpes_empty_event_list_message;
         DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE = 'DUPLICATE_PLATFORM_EVENT_CONFIGURATIONS: '+Label.lpes_duplicate_event_configurations_message;
         NO_EVENT_CONFIGURATIONS_MESSAGE = 'NO_PLATFORM_EVENT_CONFIGURATIONS: '+Label.lpes_no_event_configurations_message;
@@ -27,6 +28,7 @@ global without sharing class LogPlatformEventsService
 
     global LogPlatformEventsService(list<sobject> newlist)
     {
+        this.debugLimits('Start Constructor');
         // list is requried for processing
         if (newlist==null || newlist.size()==0)
             throw new PlatformEventLogException(EMPTY_EVENT_LIST_MESSAGE);
@@ -76,14 +78,19 @@ global without sharing class LogPlatformEventsService
         // After confirming valid list and configuration initialize object variables
         this.newlist = newlist;
         buildLogList();
+
+        this.debugLimits('End Constructor');
+
     }
 
 
 
     global void logEvents()
     {
+        this.debugLimits('Start Log Events');
+
         // return if no active configurations exist
-        if (config==null || !config.is_active__c)
+        if (!checkActiveConfig())
             return;
 
         if (config.enable_log_records__c)
@@ -91,14 +98,18 @@ global without sharing class LogPlatformEventsService
 
         if (config.enable_debug__c)
             this.debugPlatformEventLogs();
+
+        this.debugLimits('End Log Events');
     }
 
 
 
     private void buildLogList()
     {
+        this.debugLimits('Start Build Log List');
+
         // return if no active configuration exists
-        if (this.config==null || !this.config.is_active__c)
+        if (!checkActiveConfig())
             return;
 
         id pubishingUser;
@@ -197,13 +208,19 @@ global without sharing class LogPlatformEventsService
 
             this.replayidToFieldLogs.put((string)event.get('replayid'),fields);
         }
+
+        this.debugLimits('End Build Log List');
     }
 
 
 
     private void insertPlatformEventLogs()
     {
-        if (this.logs.size()>0)
+        this.debugLimits('Start Insert Platform Event Logs');
+
+        if (test.isRunningTest() && !LogPlatformEventsServiceTest.getPerformDML())
+            LogPlatformEventsServiceTest.setInsertedLogs(this.logs);
+        else if (this.logs.size()>0)
             insert this.logs;
 
         // attach field logs to parent log recor and add all to list for insert
@@ -217,8 +234,13 @@ global without sharing class LogPlatformEventsService
             }
         }
 
-        if (this.fieldlogs.size()>0)
+        
+        if (test.isRunningTest() && !LogPlatformEventsServiceTest.getPerformDML())
+            LogPlatformEventsServiceTest.setInsertedLogFields(this.fieldLogs);
+        else if (this.fieldlogs.size()>0)
             insert this.fieldlogs;
+
+        this.debugLimits('End Insert Platform Event Logs');
     }
 
     private void debugPlatformEventLogs()
@@ -227,6 +249,11 @@ global without sharing class LogPlatformEventsService
             System.debug(System.LoggingLevel.FINE, log);
     }
 
+
+    private boolean checkActiveConfig() 
+    {
+        return this.config!=null && this.config.is_active__c;
+    }
 
     // Validate id string and return valid id or null
     private id getUserId(string idstring)
@@ -239,7 +266,6 @@ global without sharing class LogPlatformEventsService
             return null;
         }
     }
-
 
     private void setPublishingUserField(string fieldPath)
     {
@@ -264,6 +290,12 @@ global without sharing class LogPlatformEventsService
     private FieldSetting getFieldSetting(string fieldPath)
     {
         return this.fieldPathToSettings.get(fieldPath)!=null ? this.fieldPathToSettings.get(fieldPath) : new FieldSetting(fieldPath);
+    }
+
+    private void debugLimits(string message)
+    {
+        System.debug('LogPlatformEventsService Limits: ' + message +
+                    '\n*** CPU TIME ***: ' + Limits.getCpuTime());
     }
 
 

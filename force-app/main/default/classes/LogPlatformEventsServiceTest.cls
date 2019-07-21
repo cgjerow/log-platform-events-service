@@ -1,17 +1,24 @@
-@isTest
-global class LogPlatformEventsServiceTest 
+@isTest global class LogPlatformEventsServiceTest 
 {
-    private static final integer count=500;
+    private static final integer count;
     private static list<LogPlatformEventsServiceTestEvent__e> testEvents;
     private static list<Platform_Event_Log_Configuration__mdt> eventConfigurations;
     private static final string jsonFieldString;
     private static final string invalidJsonString;
+    private static boolean performDML;
+    private static List<platform_event_log__c> insertedLogs; // Logs stored here if PerformDML is FALSE
+    private static List<platform_event_log_field__c> insertedFieldLogs; // Logs stored here if PerformDML is FALSE
+
 
     static 
     {
+        count = 250;
         eventConfigurations = new List<Platform_Event_Log_Configuration__mdt>();
         jsonFieldString = '{"Publishing_User__c":"0051N000006Ckw6QAC","innerFieldOne":"innerValueOne","innerFieldTwo":"innerValueTwo","innerFieldThree":{"deepInnerFieldOne":"deepInnerValueOne"}}';
         invalidJsonString = '{\"realfield\":\"realValue\":errorField\":\"errorValue\"}'; // throw error in JSON.deserialize
+        performDML = false;
+        insertedLogs = new List<platform_event_log__c>();
+        insertedFieldLogs = new List<platform_event_log_field__c>();
     }
 
 
@@ -72,11 +79,41 @@ global class LogPlatformEventsServiceTest
         return eventConfigurations;
     }
 
+    global static boolean getPerformDML()
+    {
+        return performDML;
+    }
+
+    global static void setInsertedLogs(List<platform_event_log__c> logs)
+    {
+        insertedLogs = logs;
+    }
+
+    global static void setInsertedLogFields(List<platform_event_log_field__c> fieldLogs)
+    {
+        insertedFieldLogs = fieldLogs;
+    }
+
+    private static list<platform_event_log__c> getInsertedLogs() 
+    {
+        if (performDML)
+            return [select id, name, publishing_user__c from platform_event_log__c];
+        else 
+            return insertedLogs;
+    }
+
+    private static list<platform_event_log_field__c> getInsertedFieldLogs()
+    {
+        if (performDML)
+            return [select id, field_name__c, field_value__c from platform_event_log_field__c];
+        else 
+            return insertedFieldLogs;
+    }
+
     
     // ALL TEST METHODS BELOW
 
-    @isTest
-    static void passEmptyListToConstructor() 
+    @isTest static void passEmptyListToConstructor() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -94,8 +131,7 @@ global class LogPlatformEventsServiceTest
         System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE.split(':')[0]));
     }
 
-    @isTest
-    static void passNullToConstructor() 
+    @isTest static void passNullToConstructor() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -113,8 +149,7 @@ global class LogPlatformEventsServiceTest
         System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE.split(':')[0]));
     }
 
-    @isTest
-    static void noConfigurations() 
+    @isTest static void noConfigurations() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -134,8 +169,7 @@ global class LogPlatformEventsServiceTest
         System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.NO_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
     }
 
-    @isTest
-    static void multipleActiveConfigurations() 
+    @isTest static void multipleActiveConfigurations() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -156,8 +190,7 @@ global class LogPlatformEventsServiceTest
         System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
     }
 
-    @isTest
-    static void activeAndInactiveConfigurationsPassing() 
+    @isTest static void activeAndInactiveConfigurationsPassing() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -176,13 +209,12 @@ global class LogPlatformEventsServiceTest
         }
         test.stopTest();
 
-        List<platform_event_log__c> eventLogs = [select id, name from platform_event_log__c];
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
         System.assert(emptyListException==null);
         System.assertEquals(count, eventLogs.size());
     }
 
-    @isTest
-    static void activeAndInactiveConfigurationsFailing() 
+    @isTest static void activeAndInactiveConfigurationsFailing() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -204,12 +236,13 @@ global class LogPlatformEventsServiceTest
         System.assert(emptyListException.getMessage().contains(LogPlatformEventsService.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
     }
 
-    @isTest
-    static void oneValidConfiguration() 
+    @isTest static void oneValidConfigurationWithDML() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
 
+        // PERFORM INSERTS
+        performDML = true;
         createPlatformEventList();
         createPlatformEventConfigurationRecords(1,'LogPlatformEventsServiceTestEvent__e','JsonTextField__c,JsonTextField__c.innerFieldOne,JsonTextField__c.innerFieldThree.deepInnerFieldOne');
 
@@ -224,8 +257,8 @@ global class LogPlatformEventsServiceTest
         }
         test.stopTest();
 
-        List<platform_event_log__c> eventLogs = [select id, name, publishing_user__c from platform_event_log__c];
-        list<platform_event_log_field__c> eventLogFields = [select id, field_name__c, field_value__c from platform_event_log_field__c];
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
+        list<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
 
         integer jsonTextFields = 0;
         integer innerFieldOneFields = 0;
@@ -255,8 +288,57 @@ global class LogPlatformEventsServiceTest
         }
     }
 
-    @isTest
-    static void invalidPublishingUserValue() 
+    @isTest static void oneValidConfiguration() 
+    {
+        exception emptyListException;
+        LogPlatformEventsService eventlogger;
+
+        createPlatformEventList();
+        createPlatformEventConfigurationRecords(1,'LogPlatformEventsServiceTestEvent__e','JsonTextField__c,JsonTextField__c.innerFieldOne,JsonTextField__c.innerFieldThree.deepInnerFieldOne');
+
+        test.startTest();
+        try {
+            eventlogger = new LogPlatformEventsService(testEvents);
+            eventlogger.logEvents();
+        } catch (exception e) {
+            System.debug(e);
+            System.debug(e.getStackTraceString());
+            emptyListException = e;
+        }
+        test.stopTest();
+
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
+        list<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
+
+        integer jsonTextFields = 0;
+        integer innerFieldOneFields = 0;
+        integer deepInnerFieldOneFields = 0;
+
+        for (platform_event_log_field__c eventLogField : eventLogFields)
+        {
+            System.debug(eventLogField);
+            if (eventLogField.field_name__c=='JsonTextField__c' && eventLogField.field_value__c==jsonFieldString)
+                jsonTextFields+=1;
+            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldOne' && eventLogField.field_value__c=='innerValueOne')
+                innerFieldOneFields+=1;
+            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldThree.deepInnerFieldOne' && eventLogField.field_value__c=='deepInnerValueOne')
+                deepInnerFieldOneFields+=1;
+        }
+        
+        System.assert(emptyListException==null);
+        System.assertEquals(count, eventLogs.size());
+        System.assertEquals(count*3, eventLogFields.size());
+        System.assertEquals(count,deepInnerFieldOneFields);
+        System.assertEquals(count,innerFieldOneFields);
+        System.assertEquals(count,jsonTextFields);
+
+        for (platform_event_log__c log : eventLogs)
+        {
+            System.assertEquals('0051N000006Ckw6QAC',log.publishing_user__c);
+        }
+    }
+
+    @isTest static void invalidPublishingUserValue() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -277,7 +359,7 @@ global class LogPlatformEventsServiceTest
         }
         test.stopTest();
 
-        List<platform_event_log__c> eventLogs = [select id, name, publishing_user__c from platform_event_log__c];
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
         
         
         System.assert(emptyListException==null);
@@ -289,8 +371,7 @@ global class LogPlatformEventsServiceTest
         }
     }
 
-    @isTest
-    static void erroneousFieldConfiguration() 
+    @isTest static void erroneousFieldConfiguration() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -308,13 +389,12 @@ global class LogPlatformEventsServiceTest
         }
         test.stopTest();
 
-        List<platform_event_log__c> eventLogs = [select id, name from platform_event_log__c];
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
         System.assert(emptyListException==null);
         System.assertEquals(count, eventLogs.size());
     }
 
-    @isTest
-    static void erroneousJsonInPayload() 
+    @isTest static void erroneousJsonInPayload() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -332,8 +412,8 @@ global class LogPlatformEventsServiceTest
         }
         test.stopTest();
 
-        List<platform_event_log__c> eventLogs = [select id, name from platform_event_log__c];
-        List<platform_event_log_field__c> eventLogFields = [select id, field_name__c, field_value__c from platform_event_log_field__c];
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
+        List<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
 
         System.assert(emptyListException==null);
         System.assertEquals(count, eventLogs.size());
@@ -346,8 +426,7 @@ global class LogPlatformEventsServiceTest
         }
     }
 
-    @isTest
-    static void inactiveConfiguration() 
+    @isTest static void inactiveConfiguration() 
     {
         exception emptyListException;
         LogPlatformEventsService eventlogger;
@@ -366,7 +445,7 @@ global class LogPlatformEventsServiceTest
         }
         test.stopTest();
 
-        List<platform_event_log__c> eventLogs = [select id, name from platform_event_log__c];
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
         System.assert(emptyListException==null);
         System.assertEquals(0, eventLogs.size());
     }
