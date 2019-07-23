@@ -125,8 +125,7 @@
         doTest(new List<LogPlatformEventsServiceTestEvent__e>());
         test.stopTest();
 
-        System.assert(logException!=null);
-        System.assert(logException.getMessage().contains(lpes_LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE.split(':')[0]));
+        System.assert(logException==null);
     }
 
     @isTest static void passNullToConstructor() 
@@ -136,7 +135,6 @@
         test.stopTest();
 
         System.assert(logException!=null);
-        System.assert(logException.getMessage().contains(lpes_LogPlatformEventsService.EMPTY_EVENT_LIST_MESSAGE.split(':')[0]));
     }
 
     @isTest static void oneValidConfigurationWithDML() 

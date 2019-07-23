@@ -17,14 +17,6 @@
         <value>Multiple Platform Event Log Configuration metadata records are active for {0}</value>
     </labels>
     <labels>
-        <fullName>lpes_empty_event_list_message</fullName>
-        <categories>LogPlatformEventService,Exception</categories>
-        <language>en_US</language>
-        <protected>false</protected>
-        <shortDescription>Exception message thrown when Log Platform Event Service is passed an empty list</shortDescription>
-        <value>The platform event list provided was empty</value>
-    </labels>
-    <labels>
         <fullName>lpes_invalid_event_field_message</fullName>
         <categories>LogPlatformEventService,Exception</categories>
         <language>en_US</language>

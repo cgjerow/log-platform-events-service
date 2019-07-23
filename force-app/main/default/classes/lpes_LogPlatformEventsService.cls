@@ -8,14 +8,12 @@ public without sharing class lpes_LogPlatformEventsService
     private list<platform_event_log_field__c> fieldlogs;
     protected map<string,fieldsetting> fieldPathToSettings;
 
-    @testvisible private static final string EMPTY_EVENT_LIST_MESSAGE;
     @testvisible private static final string JSON_PARSE_ERROR_MESSAGE;
     @testvisible private static final string INVALID_EVENT_FIELD_MESSAGE;
     @testvisible private static final string DISABLED_PAYLOAD_LOG_MESSSAGE;
 
     static 
     {
-        EMPTY_EVENT_LIST_MESSAGE = 'EMPTY_EVENT_LIST: '+Label.lpes_empty_event_list_message;
         JSON_PARSE_ERROR_MESSAGE = 'JSON_PARSE_ERROR: '+Label.lpes_json_parse_error_message;
         INVALID_EVENT_FIELD_MESSAGE = 'INVALID_EVENT_FIELD: '+Label.lpes_invalid_event_field_message;
         DISABLED_PAYLOAD_LOG_MESSSAGE = 'DISABLED_PAYLOAD_LOG: '+Label.lpes_disabled_payload_log_message;
@@ -24,15 +22,6 @@ public without sharing class lpes_LogPlatformEventsService
     public lpes_LogPlatformEventsService(list<sobject> newlist, lpes_ILogPlatformEventsConfiguration config)
     {
         this.debugLimits('Start Constructor');
-        // list is requried for processing
-        System.debug(newlist);
-        System.debug(newlist==null);
-
-        if (newlist==null || newlist.size()==0)
-            throw new PlatformEventLogException(EMPTY_EVENT_LIST_MESSAGE);
-
-        String eventType = String.valueOf(newlist[0].getSObjectType());
-
         // initialize log records for debug & insert
         this.config = config;
         this.newlist = newlist;
@@ -239,10 +228,11 @@ public without sharing class lpes_LogPlatformEventsService
         return this.fieldPathToSettings.get(fieldPath)!=null ? this.fieldPathToSettings.get(fieldPath) : new FieldSetting(fieldPath);
     }
 
+    // can uncomment or update for logging throughout service
     private void debugLimits(string message)
     {
-        System.debug('lpes_LogPlatformEventsService Limits: ' + message +
-                    '\n*** CPU TIME ***: ' + Limits.getCpuTime());
+        //System.debug('lpes_LogPlatformEventsService Limits: ' + message +
+        //            '\n*** CPU TIME ***: ' + Limits.getCpuTime());
     }
 
 
