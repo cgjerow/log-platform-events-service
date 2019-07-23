@@ -36,14 +36,6 @@
         <actionName>Tab</actionName>
         <type>Default</type>
     </actionOverrides>
-    <actionOverrides>
-        <actionName>View</actionName>
-        <comment>Action override created by Lightning App Builder during activation.</comment>
-        <content>Platform_Event_Log_Record_Page1</content>
-        <formFactor>Large</formFactor>
-        <skipRecordTypeSelect>false</skipRecordTypeSelect>
-        <type>Flexipage</type>
-    </actionOverrides>
     <allowInChatterGroups>false</allowInChatterGroups>
     <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
     <deploymentStatus>Deployed</deploymentStatus>
@@ -59,7 +51,6 @@
     <enableStreamingApi>true</enableStreamingApi>
     <label>Platform Event Log</label>
     <nameField>
-        <encryptionScheme>None</encryptionScheme>
         <label>Platform Event Log Name</label>
         <type>Text</type>
     </nameField>

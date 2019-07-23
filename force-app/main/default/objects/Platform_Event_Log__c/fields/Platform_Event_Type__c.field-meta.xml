@@ -2,7 +2,6 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Platform_Event_Type__c</fullName>
     <description>API name of the Platform Event type</description>
-    <encryptionScheme>None</encryptionScheme>
     <externalId>false</externalId>
     <inlineHelpText>API name of the Platform Event type</inlineHelpText>
     <label>Platform Event Type</label>

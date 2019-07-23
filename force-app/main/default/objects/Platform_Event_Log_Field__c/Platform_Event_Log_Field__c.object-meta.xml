@@ -55,7 +55,6 @@
     <enableStreamingApi>true</enableStreamingApi>
     <label>Platform Event Log Field</label>
     <nameField>
-        <encryptionScheme>None</encryptionScheme>
         <label>Platform Event Log Field Name</label>
         <type>Text</type>
     </nameField>

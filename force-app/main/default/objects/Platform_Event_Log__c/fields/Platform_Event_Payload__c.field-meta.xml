@@ -2,7 +2,6 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Platform_Event_Payload__c</fullName>
     <description>The full content of the platform event that is logged</description>
-    <encryptionScheme>None</encryptionScheme>
     <externalId>false</externalId>
     <inlineHelpText>The full content of the platform event that is logged</inlineHelpText>
     <label>Platform Event Payload</label>

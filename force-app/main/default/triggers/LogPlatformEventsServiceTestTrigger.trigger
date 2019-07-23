@@ -8,5 +8,5 @@
 */
 
 trigger LogPlatformEventsServiceTestTrigger on LogPlatformEventsServiceTestEvent__e (after insert) {
-    new LogPlatformEventsService(Trigger.new).logEvents();
+    new lpes_LogPlatformEventsService(Trigger.new, new lpes_CustomMetadataConfiguration('LogPlatformEventsServiceTestEvent__e')).logEvents();
 }

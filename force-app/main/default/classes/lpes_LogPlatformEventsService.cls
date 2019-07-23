@@ -1,102 +1,56 @@
-global without sharing class LogPlatformEventsService
+public without sharing class lpes_LogPlatformEventsService
 {
 
     private final sobject[] newlist;
-    private final platform_event_log_configuration__mdt config;
+    private final lpes_ILogPlatformEventsConfiguration config;
     private platform_event_log__c[] logs;
     private map<string,list<platform_event_log_field__c>> replayidToFieldLogs;
     private list<platform_event_log_field__c> fieldlogs;
     protected map<string,fieldsetting> fieldPathToSettings;
 
     @testvisible private static final string EMPTY_EVENT_LIST_MESSAGE;
-    @testvisible private static final string DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE;
-    @testvisible private static final string NO_EVENT_CONFIGURATIONS_MESSAGE;
     @testvisible private static final string JSON_PARSE_ERROR_MESSAGE;
     @testvisible private static final string INVALID_EVENT_FIELD_MESSAGE;
     @testvisible private static final string DISABLED_PAYLOAD_LOG_MESSSAGE;
 
     static 
     {
-        // could make these messages configurable with custom setting or custom labels
         EMPTY_EVENT_LIST_MESSAGE = 'EMPTY_EVENT_LIST: '+Label.lpes_empty_event_list_message;
-        DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE = 'DUPLICATE_PLATFORM_EVENT_CONFIGURATIONS: '+Label.lpes_duplicate_event_configurations_message;
-        NO_EVENT_CONFIGURATIONS_MESSAGE = 'NO_PLATFORM_EVENT_CONFIGURATIONS: '+Label.lpes_no_event_configurations_message;
         JSON_PARSE_ERROR_MESSAGE = 'JSON_PARSE_ERROR: '+Label.lpes_json_parse_error_message;
         INVALID_EVENT_FIELD_MESSAGE = 'INVALID_EVENT_FIELD: '+Label.lpes_invalid_event_field_message;
         DISABLED_PAYLOAD_LOG_MESSSAGE = 'DISABLED_PAYLOAD_LOG: '+Label.lpes_disabled_payload_log_message;
     }
 
-    global LogPlatformEventsService(list<sobject> newlist)
+    public lpes_LogPlatformEventsService(list<sobject> newlist, lpes_ILogPlatformEventsConfiguration config)
     {
         this.debugLimits('Start Constructor');
         // list is requried for processing
+        System.debug(newlist);
+        System.debug(newlist==null);
+
         if (newlist==null || newlist.size()==0)
             throw new PlatformEventLogException(EMPTY_EVENT_LIST_MESSAGE);
 
         String eventType = String.valueOf(newlist[0].getSObjectType());
 
-        platform_event_log_configuration__mdt[] eventLogConfigurations =
-                                            [
-                                                select masterlabel,
-                                                is_active__c,
-                                                enable_debug__c,
-                                                enable_log_records__c,
-                                                enable_full_payload_log__c,
-                                                field_logs__c,
-                                                publishing_user_field__c,
-                                                Platform_Event_Type_API_Name__c
-                                                from platform_event_log_configuration__mdt
-                                                where Platform_Event_Type_API_Name__c=:eventType
-                                            ];
-
-        // Use mocks if running test
-        if (test.isRunningTest())
-            eventLogConfigurations = LogPlatformEventsServiceTest.getEventConfigurations();
-
-
-
-        // At least one configuration is required, otherwise throw exception to alert admin
-        if (eventLogConfigurations.size()==0)
-            throw new PlatformEventLogException(String.format(NO_EVENT_CONFIGURATIONS_MESSAGE,new list<string>{eventType}));
-
-        // Multiple *active* configurations also throw exception to alert admin.
-        // No exception is thrown if all are inactive.
-        // In this case we assume they have been intentionally disabled.
-        integer activeConfigurations = 0;
-        for (platform_event_log_configuration__mdt eventConfig : eventLogConfigurations)
-        {
-            if (eventConfig.is_active__c)
-            {
-                activeConfigurations+=1;
-                if (activeConfigurations>1)
-                    throw new PlatformEventLogException(String.format(DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE,new list<string>{eventType}));
-
-                this.config = eventConfig;
-            }
-        }
-
-        // After confirming valid list and configuration initialize object variables
+        // initialize log records for debug & insert
+        this.config = config;
         this.newlist = newlist;
+        
         buildLogList();
-
         this.debugLimits('End Constructor');
-
     }
 
 
 
-    global void logEvents()
+    public void logEvents()
     {
         this.debugLimits('Start Log Events');
 
-        // return if no active configurations exist
-        if (!checkActiveConfig())
-            return;
-
-        if (config.enable_log_records__c)
+        if (this.config.getIsLogRecords())
             this.insertPlatformEventLogs();
 
-        if (config.enable_debug__c)
+        if (this.config.getIsDebug())
             this.debugPlatformEventLogs();
 
         this.debugLimits('End Log Events');
@@ -108,14 +62,9 @@ global without sharing class LogPlatformEventsService
     {
         this.debugLimits('Start Build Log List');
 
-        // return if no active configuration exists
-        if (!checkActiveConfig())
-            return;
-
-        id pubishingUser;
         this.logs = new list<platform_event_log__c>();
         this.replayidToFieldLogs = new map<string,list<platform_event_log_field__c>>();
-        list<string> fieldsToLog = this.config.field_logs__c.split(',');
+        list<string> fieldsToLog = this.config.getFieldsToLog();
         this.fieldPathToSettings = new map<string,fieldsetting>();
 
 
@@ -125,14 +74,14 @@ global without sharing class LogPlatformEventsService
                 this.setLogField(fieldPath);
         }
 
-        if (!String.isBlank(this.config.publishing_user_field__c))
-            this.setPublishingUserField(this.config.publishing_user_field__c);
+        this.setPublishingUserField(this.config.getPublishingUserField());
 
 
         // build platform_event_log and platform_event_log_field records
         for (SObject event : this.newlist)
         {
             id publishingUser;
+            string platformEventType = event.getSobjectType().getDescribe().getName(); // maybe create a map to minimize repeated describe calls
             platform_event_log_field__c[] fields = new list<platform_event_log_field__c>();
 
             // iterate through all fields to log
@@ -164,7 +113,7 @@ global without sharing class LogPlatformEventsService
                             } catch(SObjectException e) {
                                 System.debug(e.getMessage());
                                 System.debug(INVALID_EVENT_FIELD_MESSAGE);
-                                value = String.format(INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,this.config.Platform_Event_Type_API_Name__c});
+                                value = String.format(INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,platformEventType});
                                 break;
                             }
                             
@@ -196,17 +145,21 @@ global without sharing class LogPlatformEventsService
                     ));
             }
 
+            
             this.logs.add(new platform_event_log__c(
-                name = this.config.Platform_Event_Type_API_Name__c+' - '+event.get('replayid'),
+                name = String.format(this.config.getNameFormatPlaceholder(),
+                                     new list<string>{(string)event.get('replayid')}),
                 replayid__c = (string)event.get('replayid'),                
-                platform_event_type__c = this.config.Platform_Event_Type_API_Name__c,
-                publishing_user__c = (id) ( this.config.publishing_user_field__c==null ? 
-                                            event.get('createdbyid') : publishingUser ),
-                platform_event_payload__c = config.enable_full_payload_log__c ? 
+                platform_event_type__c = platformEventType,
+                publishing_user__c = (id)publishingUser,
+                platform_event_payload__c = this.config.getIsLogFullPayload() ? 
                                             String.valueOf(event) : DISABLED_PAYLOAD_LOG_MESSSAGE
             ));
 
             this.replayidToFieldLogs.put((string)event.get('replayid'),fields);
+
+            // reset tmp fields
+            publishingUser = null;
         }
 
         this.debugLimits('End Build Log List');
@@ -218,8 +171,8 @@ global without sharing class LogPlatformEventsService
     {
         this.debugLimits('Start Insert Platform Event Logs');
 
-        if (test.isRunningTest() && !LogPlatformEventsServiceTest.getPerformDML())
-            LogPlatformEventsServiceTest.setInsertedLogs(this.logs);
+        if (test.isRunningTest() && !lpes_LogPlatformEventsServiceTest.getPerformDML())
+            lpes_LogPlatformEventsServiceTest.setInsertedLogs(this.logs);
         else if (this.logs.size()>0)
             insert this.logs;
 
@@ -235,8 +188,8 @@ global without sharing class LogPlatformEventsService
         }
 
         
-        if (test.isRunningTest() && !LogPlatformEventsServiceTest.getPerformDML())
-            LogPlatformEventsServiceTest.setInsertedLogFields(this.fieldLogs);
+        if (test.isRunningTest() && !lpes_LogPlatformEventsServiceTest.getPerformDML())
+            lpes_LogPlatformEventsServiceTest.setInsertedLogFields(this.fieldLogs);
         else if (this.fieldlogs.size()>0)
             insert this.fieldlogs;
 
@@ -247,12 +200,6 @@ global without sharing class LogPlatformEventsService
     {
         for (platform_event_log__c log : this.logs)
             System.debug(System.LoggingLevel.FINE, log);
-    }
-
-
-    private boolean checkActiveConfig() 
-    {
-        return this.config!=null && this.config.is_active__c;
     }
 
     // Validate id string and return valid id or null
@@ -270,7 +217,7 @@ global without sharing class LogPlatformEventsService
     private void setPublishingUserField(string fieldPath)
     {
         if (String.isBlank(fieldPath))
-            return;
+            fieldPath = 'CreatedById';
 
         FieldSetting fieldSetting = getFieldSetting(fieldPath);
         fieldSetting.setPublishingUserField();
@@ -294,7 +241,7 @@ global without sharing class LogPlatformEventsService
 
     private void debugLimits(string message)
     {
-        System.debug('LogPlatformEventsService Limits: ' + message +
+        System.debug('lpes_LogPlatformEventsService Limits: ' + message +
                     '\n*** CPU TIME ***: ' + Limits.getCpuTime());
     }
 
@@ -321,5 +268,5 @@ global without sharing class LogPlatformEventsService
         }
     }
 
-    global class PlatformEventLogException extends Exception {}
+    public class PlatformEventLogException extends Exception {}
 }
