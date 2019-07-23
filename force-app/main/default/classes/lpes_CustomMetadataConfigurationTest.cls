@@ -71,7 +71,7 @@
         System.assert(config.getIsLogFullPayload());
         System.assert(config.getIsLogRecords());
         System.assertEquals('JsonTextField__c.Publishing_User__c',config.getPublishingUserField());
-        System.assertEquals(eventType+' - {0}',config.getNameFormatPlaceholder());
+        System.assertEquals('{1} - {0}',config.getNameFormatPlaceholder());
         System.assertEquals(new list<string>{'JsonTextField__c'}, config.getFieldsToLog());
     }
     
