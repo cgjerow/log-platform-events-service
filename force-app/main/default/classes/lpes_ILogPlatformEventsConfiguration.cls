@@ -11,7 +11,7 @@ global interface lpes_ILogPlatformEventsConfiguration
 
     list<string> getFieldsToLog();
 
-    // {0} replaced by ReplayId
+    // {0} replaced by ReplayId, {1} replaced by Platform Event Type (based on getDescribeCall at run time)
     string getNameFormatPlaceholder();
 
 }

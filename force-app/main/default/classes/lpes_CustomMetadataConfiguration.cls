@@ -1,12 +1,5 @@
-public with sharing class lpes_CustomMetadataConfiguration implements lpes_ILogPlatformEventsConfiguration 
+public class lpes_CustomMetadataConfiguration extends lpes_LogPlatformEventsConfiguration  
 {
-
-    private boolean isLogRecords = false;
-    private boolean isDebug = false;
-    private boolean isLogFullPayload = false;
-    private string publishingUserField = '';
-    private list<string> fieldsToLog = new list<string>();
-    private string nameFormatPlaceholder = '';
 
     private final platform_event_log_configuration__mdt config;
     private final string platformEventType;
@@ -71,38 +64,7 @@ public with sharing class lpes_CustomMetadataConfiguration implements lpes_ILogP
             this.publishingUserField = this.config.publishing_user_field__c;
             this.fieldsToLog = this.config.field_logs__c.split(',');
         }
-        this.nameFormatPlaceholder = this.platformEventType + ' - {0}';
-    }
-
-    public boolean getIsDebug()
-    {
-        return this.isDebug;
-    }
-
-    public boolean getIsLogRecords()
-    {
-        return this.isLogRecords;
-    }
-
-    public boolean getIsLogFullPayload()
-    {
-        return this.isLogFullPayload;
-    }
-
-    public string getPublishingUserField()
-    {
-        return this.publishingUserField;
-    }
-
-    public list<string> getFieldsToLog()
-    {
-        return this.fieldsToLog;
-    }
-
-    // {0} replaced by ReplayId
-    public string getNameFormatPlaceholder()
-    {
-        return this.nameFormatPlaceholder;
+        this.nameFormatPlaceholder = '{1} - {0}';
     }
 
     public class lpes_CustomMetadataConfigurationException extends Exception {}

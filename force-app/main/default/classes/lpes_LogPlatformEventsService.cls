@@ -137,7 +137,7 @@ public without sharing class lpes_LogPlatformEventsService
             
             this.logs.add(new platform_event_log__c(
                 name = String.format(this.config.getNameFormatPlaceholder(),
-                                     new list<string>{(string)event.get('replayid')}),
+                                     new list<string>{(string)event.get('replayid'),platformEventType}),
                 replayid__c = (string)event.get('replayid'),                
                 platform_event_type__c = platformEventType,
                 publishing_user__c = (id)publishingUser,
