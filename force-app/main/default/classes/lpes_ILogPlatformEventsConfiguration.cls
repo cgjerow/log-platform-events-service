@@ -1,4 +1,4 @@
-global interface lpes_ILogPlatformEventsConfiguration 
+public interface lpes_ILogPlatformEventsConfiguration 
 {
 
     boolean getIsDebug();
