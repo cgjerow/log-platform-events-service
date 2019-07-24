@@ -39,4 +39,5 @@ public abstract class lpes_LogPlatformEventsConfiguration implements lpes_ILogPl
     {
         return this.nameFormatPlaceholder;
     }
+
 }

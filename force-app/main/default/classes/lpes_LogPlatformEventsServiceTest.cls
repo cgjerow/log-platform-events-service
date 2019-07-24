@@ -1,4 +1,6 @@
-@isTest public class lpes_LogPlatformEventsServiceTest 
+
+// Extend LogPlatformEventsConfig to use this test class in the MockProvider
+@isTest public class lpes_LogPlatformEventsServiceTest extends lpes_LogPlatformEventsConfiguration
 {
     
     private static integer count;
@@ -31,8 +33,31 @@
     }
 
 
-    /** PRIVATE HELPER METHODS **/
 
+    /***************************************************
+                   PUBLIC GETTER METHODS
+    ****************************************************/
+    
+    public static boolean getPerformDML()
+    {
+        return performDML;
+    }
+
+    public static void setInsertedLogs(List<platform_event_log__c> logs)
+    {
+        insertedLogs = logs;
+    }
+
+    public static void setInsertedLogFields(List<platform_event_log_field__c> fieldLogs)
+    {
+        insertedFieldLogs = fieldLogs;
+    }
+
+
+
+    /***************************************************
+                   FAKE DATA GENERATORS
+    ****************************************************/
 
     /* 
     * Leveraging the JSON.deserialize() method allows us to work 
@@ -67,20 +92,11 @@
         }
     }
 
-    public static boolean getPerformDML()
-    {
-        return performDML;
-    }
 
-    public static void setInsertedLogs(List<platform_event_log__c> logs)
-    {
-        insertedLogs = logs;
-    }
 
-    public static void setInsertedLogFields(List<platform_event_log_field__c> fieldLogs)
-    {
-        insertedFieldLogs = fieldLogs;
-    }
+    /***************************************************
+                   PRIVATE HELPER METHODS
+    ****************************************************/ 
 
     private static list<platform_event_log__c> getInsertedLogs() 
     {
@@ -98,125 +114,90 @@
             return insertedFieldLogs;
     }
 
-
-    // All tests are running the same core functionality, just with different config and events
-    // Pulled this out to avoid duplication across all tests
-    private static void doTest(list<sobject> testEvents)
+    private static void doUnitTest(list<sobject> testEvents)
     {
+        eventlogger = new lpes_LogPlatformEventsService(
+            testEvents,
+            (lpes_LogPlatformEventsServiceTest)lpes_MockProvider.createMock(lpes_LogPlatformEventsServiceTest.class, methodToReturnValue
+        ));
+        eventlogger.logEvents();
+    }
+
+
+    private static void doIntegrationTest(list<sobject> testEvents)
+    {
+        eventlogger = new lpes_LogPlatformEventsService(
+            testEvents,
+            new lpes_LogPlatformEventsServiceTest.ConcreteLogPlatformEventsConfiguration(
+                (boolean)methodToReturnValue.get('getIsLogRecords'),
+                (boolean)methodToReturnValue.get('getIsDebug'),
+                (boolean)methodToReturnValue.get('getIsLogFullPayload'),
+                (string)methodToReturnValue.get('getPublishingUserField'),
+                (list<string>)methodToReturnValue.get('getFieldsToLog'),
+                (string)methodToReturnValue.get('getNameFormatPlaceholder')
+        ));
+        eventlogger.logEvents();
+    }
+    
+    /***************************************************
+        CONCRETE lpes_LogPlatformEventsConfiguration
+    ****************************************************/
+    
+    public class ConcreteLogPlatformEventsConfiguration extends lpes_LogPlatformEventsConfiguration
+    {
+        public ConcreteLogPlatformEventsConfiguration(
+            boolean logRecords, boolean debug, boolean logPayload,
+            string userField, list<string> logFields, string nameFormat
+        )
+        {
+            this.isLogRecords = logRecords;
+            this.isDebug = debug;
+            this.isLogFullPayload = logPayload;
+            this.publishingUserField = userField;
+            this.fieldsToLog = logFields;
+            this.nameFormatPlaceholder = nameFormat;
+        }
+    }
+
+
+
+    /***************************************************
+                        UNIT TESTS
+    ****************************************************/
+
+    @isTest static void passEmptyListToConstructorWithValidConfiguration() 
+    {
+        test.startTest();
         try {
-            eventlogger = new lpes_LogPlatformEventsService(testEvents,
-                              (lpes_CustomMetadataConfiguration)lpes_MockProvider.createMock(lpes_CustomMetadataConfiguration.class, methodToReturnValue));
-            eventlogger.logEvents();
-        } catch (exception e) {
+            doUnitTest(new List<LogPlatformEventsServiceTestEvent__e>());
+        } catch(exception e) {
             logException = e;
             System.debug(e.getMessage());
             System.debug(e.getStackTraceString());
         }
-    }
-    
-
-
-
-    /** TEST METHODS **/
-
-    @isTest static void passEmptyListToConstructor() 
-    {
-        test.startTest();
-        doTest(new List<LogPlatformEventsServiceTestEvent__e>());
         test.stopTest();
 
         System.assert(logException==null);
+        System.assertEquals(0,getInsertedLogs().size());
+        System.assertEquals(0,getInsertedFieldLogs().size());
     }
 
     @isTest static void passNullToConstructor() 
     {
         test.startTest();
-        doTest(null);
+        try {
+            doUnitTest(null);
+        } catch(exception e) {
+            logException = e;
+            System.debug(e.getMessage());
+            System.debug(e.getStackTraceString());
+        }
         test.stopTest();
 
         System.assert(logException!=null);
+        System.assertEquals(lpes_LogPlatformEventsService.INVALID_PARAMETERS_MESSAGE, logException.getMessage());
     }
 
-    @isTest static void oneValidConfigurationWithDML() 
-    {
-        // PERFORM INSERTS
-        count = 250; // test valid config with high count
-        performDML = true;
-        createPlatformEventList();
-
-        test.startTest();
-        doTest(testEvents);
-        test.stopTest();
-
-        List<platform_event_log__c> eventLogs = getInsertedLogs();
-        list<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
-
-        integer jsonTextFields = 0;
-        integer innerFieldOneFields = 0;
-        integer deepInnerFieldOneFields = 0;
-
-        for (platform_event_log_field__c eventLogField : eventLogFields)
-        {
-            if (eventLogField.field_name__c=='JsonTextField__c' && eventLogField.field_value__c==jsonFieldString)
-                jsonTextFields+=1;
-            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldOne' && eventLogField.field_value__c=='innerValueOne')
-                innerFieldOneFields+=1;
-            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldThree.deepInnerFieldOne' && eventLogField.field_value__c=='deepInnerValueOne')
-                deepInnerFieldOneFields+=1;
-        }
-        
-        System.assert(logException==null);
-        System.assertEquals(count, eventLogs.size());
-        System.assertEquals(count*3, eventLogFields.size());
-        System.assertEquals(count,deepInnerFieldOneFields);
-        System.assertEquals(count,innerFieldOneFields);
-        System.assertEquals(count,jsonTextFields);
-
-        for (platform_event_log__c log : eventLogs)
-        {
-            System.assertEquals(UserInfo.getUserId(),log.publishing_user__c);
-        }
-    }
-
-    @isTest static void oneValidConfiguration() 
-    {
-        count = 250; // test valid config with high count
-        createPlatformEventList();
-
-        test.startTest();
-        doTest(testEvents);
-        test.stopTest();
-
-        List<platform_event_log__c> eventLogs = getInsertedLogs();
-        list<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
-
-        integer jsonTextFields = 0;
-        integer innerFieldOneFields = 0;
-        integer deepInnerFieldOneFields = 0;
-
-        for (platform_event_log_field__c eventLogField : eventLogFields)
-        {
-            System.debug(eventLogField);
-            if (eventLogField.field_name__c=='JsonTextField__c' && eventLogField.field_value__c==jsonFieldString)
-                jsonTextFields+=1;
-            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldOne' && eventLogField.field_value__c=='innerValueOne')
-                innerFieldOneFields+=1;
-            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldThree.deepInnerFieldOne' && eventLogField.field_value__c=='deepInnerValueOne')
-                deepInnerFieldOneFields+=1;
-        }
-        
-        System.assert(logException==null);
-        System.assertEquals(count, eventLogs.size());
-        System.assertEquals(count*3, eventLogFields.size());
-        System.assertEquals(count,deepInnerFieldOneFields);
-        System.assertEquals(count,innerFieldOneFields);
-        System.assertEquals(count,jsonTextFields);
-
-        for (platform_event_log__c log : eventLogs)
-        {
-            System.assertEquals(UserInfo.getUserId(),log.publishing_user__c);
-        }
-    }
 
     @isTest static void invalidPublishingUserValue() 
     {
@@ -226,13 +207,12 @@
         methodToReturnValue.put('getPublishingUserField','NotAField__c');
 
         test.startTest();
-        doTest(testEvents);
+        doUnitTest(testEvents);
         test.stopTest();
 
         List<platform_event_log__c> eventLogs = getInsertedLogs();
         
         
-        System.assert(logException==null);
         System.assertEquals(count, eventLogs.size());
 
         for (platform_event_log__c log : eventLogs)
@@ -249,13 +229,12 @@
         methodToReturnValue.put('getPublishingUserField','');
 
         test.startTest();
-        doTest(testEvents);
+        doUnitTest(testEvents);
         test.stopTest();
 
         List<platform_event_log__c> eventLogs = getInsertedLogs();
         
         
-        System.assert(logException==null);
         System.assertEquals(count, eventLogs.size());
 
         for (platform_event_log__c log : eventLogs)
@@ -270,11 +249,10 @@
         methodToReturnValue.put('getFieldsToLog','WrongField__c,JsonTextField__c.OtherWrongField__c.OtherWrongField__c'.split(','));
 
         test.startTest();
-        doTest(testEvents);
+        doUnitTest(testEvents);
         test.stopTest();
 
         List<platform_event_log__c> eventLogs = getInsertedLogs();
-        System.assert(logException==null);
         System.assertEquals(count, eventLogs.size());
     }
 
@@ -284,13 +262,12 @@
         methodToReturnValue.put('getFieldsToLog','JsonTextField__c.ErrorField__c'.split(','));
 
         test.startTest();
-        doTest(testEvents);
+        doUnitTest(testEvents);
         test.stopTest();
 
         List<platform_event_log__c> eventLogs = getInsertedLogs();
         List<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
 
-        System.assert(logException==null);
         System.assertEquals(count, eventLogs.size());
         System.assertEquals(count, eventLogFields.size());
 
@@ -302,18 +279,121 @@
         }
     }
 
-    @isTest static void inactiveConfiguration() 
+    @isTest static void validConfigurationWithoutLogging() 
     {
         createPlatformEventList();
         methodToReturnValue.put('getIsDebug',false);
         methodToReturnValue.put('getIsLogRecords',false);
         
         test.startTest();
-        doTest(testEvents);
+        doUnitTest(testEvents);
         test.stopTest();
 
         List<platform_event_log__c> eventLogs = getInsertedLogs();
-        System.assert(logException==null);
         System.assertEquals(0, eventLogs.size());
+    }
+
+    @isTest static void oneValidConfigurationWithAllLogging() 
+    {
+        // PERFORM INSERTS
+        count = 250; // test valid config with high count
+        createPlatformEventList();
+
+        test.startTest();
+        doUnitTest(testEvents);
+        test.stopTest();
+
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
+        list<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
+
+        integer jsonTextFields = 0;
+        integer innerFieldOneFields = 0;
+        integer deepInnerFieldOneFields = 0;
+        integer correctName = 0;
+        integer correctPublishingUser = 0;
+
+        for (platform_event_log_field__c eventLogField : eventLogFields)
+        {
+            if (eventLogField.field_name__c=='JsonTextField__c' && eventLogField.field_value__c==jsonFieldString)
+                jsonTextFields+=1;
+            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldOne' && eventLogField.field_value__c=='innerValueOne')
+                innerFieldOneFields+=1;
+            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldThree.deepInnerFieldOne' && eventLogField.field_value__c=='deepInnerValueOne')
+                deepInnerFieldOneFields+=1;
+        }
+
+        for (platform_event_log__c log : eventLogs)
+        {
+            if(UserInfo.getUserId()==log.publishing_user__c)
+                correctPublishingUser+=1;
+            
+            if (log.Name.contains('LogPlatformEventsServiceTestEvent__e'))
+                correctName+=1;
+        }
+        
+        System.assert(logException==null);
+        System.assertEquals(count, eventLogs.size());
+        System.assertEquals(count*3, eventLogFields.size());
+        System.assertEquals(count, deepInnerFieldOneFields);
+        System.assertEquals(count, innerFieldOneFields);
+        System.assertEquals(count, jsonTextFields);
+        System.assertEquals(count, correctPublishingUser);
+        System.assertEquals(count, correctName);
+    }
+
+
+
+
+    /***************************************************
+                    INTEGRATION TESTS
+    ****************************************************/
+
+    @isTest static void oneValidConfigurationWithAllLoggingAndDML() 
+    {
+        // PERFORM INSERTS
+        count = 250; // test valid config with high count
+        performDML = true;
+        createPlatformEventList();
+
+        test.startTest();
+        doIntegrationTest(testEvents); // uses ConcreteLogPlatformEventsConfiguration instead of mock object
+        test.stopTest();
+
+        List<platform_event_log__c> eventLogs = getInsertedLogs();
+        list<platform_event_log_field__c> eventLogFields = getInsertedFieldLogs();
+
+        integer jsonTextFields = 0;
+        integer innerFieldOneFields = 0;
+        integer deepInnerFieldOneFields = 0;
+        integer correctName = 0;
+        integer correctPublishingUser = 0;
+
+        for (platform_event_log_field__c eventLogField : eventLogFields)
+        {
+            if (eventLogField.field_name__c=='JsonTextField__c' && eventLogField.field_value__c==jsonFieldString)
+                jsonTextFields+=1;
+            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldOne' && eventLogField.field_value__c=='innerValueOne')
+                innerFieldOneFields+=1;
+            else if (eventLogField.field_name__c=='JsonTextField__c.innerFieldThree.deepInnerFieldOne' && eventLogField.field_value__c=='deepInnerValueOne')
+                deepInnerFieldOneFields+=1;
+        }
+
+        for (platform_event_log__c log : eventLogs)
+        {
+            if(UserInfo.getUserId()==log.publishing_user__c)
+                correctPublishingUser+=1;
+            
+            if (log.Name.contains('LogPlatformEventsServiceTestEvent__e'))
+                correctName+=1;
+        }
+        
+        System.assert(logException==null);
+        System.assertEquals(count, eventLogs.size());
+        System.assertEquals(count*3, eventLogFields.size());
+        System.assertEquals(count, deepInnerFieldOneFields);
+        System.assertEquals(count, innerFieldOneFields);
+        System.assertEquals(count, jsonTextFields);
+        System.assertEquals(count, correctPublishingUser);
+        System.assertEquals(count, correctName);
     }
 }

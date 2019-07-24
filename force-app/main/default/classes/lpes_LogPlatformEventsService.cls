@@ -3,17 +3,21 @@ public without sharing class lpes_LogPlatformEventsService
 
     private final sobject[] newlist;
     private final lpes_ILogPlatformEventsConfiguration config;
-    private platform_event_log__c[] logs;
     private map<string,list<platform_event_log_field__c>> replayidToFieldLogs;
+    private platform_event_log__c[] logs;
     private list<platform_event_log_field__c> fieldlogs;
+    private map<sobjecttype,string> typeToName;
+    private id publishingUser;
     protected map<string,fieldsetting> fieldPathToSettings;
 
     @testvisible private static final string JSON_PARSE_ERROR_MESSAGE;
     @testvisible private static final string INVALID_EVENT_FIELD_MESSAGE;
     @testvisible private static final string DISABLED_PAYLOAD_LOG_MESSSAGE;
+    @testvisible private static final string INVALID_PARAMETERS_MESSAGE;
 
     static 
     {
+        INVALID_PARAMETERS_MESSAGE = 'INVALID_CONSTRUCTOR_PARAMETERS: Parameters cannot be null';
         JSON_PARSE_ERROR_MESSAGE = 'JSON_PARSE_ERROR: '+Label.lpes_json_parse_error_message;
         INVALID_EVENT_FIELD_MESSAGE = 'INVALID_EVENT_FIELD: '+Label.lpes_invalid_event_field_message;
         DISABLED_PAYLOAD_LOG_MESSSAGE = 'DISABLED_PAYLOAD_LOG: '+Label.lpes_disabled_payload_log_message;
@@ -22,11 +26,17 @@ public without sharing class lpes_LogPlatformEventsService
     public lpes_LogPlatformEventsService(list<sobject> newlist, lpes_ILogPlatformEventsConfiguration config)
     {
         this.debugLimits('Start Constructor');
-        // initialize log records for debug & insert
+
+        if (newlist==null || config==null)
+            throw new PlatformEventLogException(INVALID_PARAMETERS_MESSAGE);
+
         this.config = config;
         this.newlist = newlist;
-        
-        buildLogList();
+
+        // Do not need to build log list if we are not logging any records
+        if (this.config.getIsDebug() || this.config.getIsLogRecords())
+            buildLogList();
+
         this.debugLimits('End Constructor');
     }
 
@@ -53,88 +63,21 @@ public without sharing class lpes_LogPlatformEventsService
 
         this.logs = new list<platform_event_log__c>();
         this.replayidToFieldLogs = new map<string,list<platform_event_log_field__c>>();
-        list<string> fieldsToLog = this.config.getFieldsToLog();
         this.fieldPathToSettings = new map<string,fieldsetting>();
+        this.typeToName = new map<sobjecttype,string>();
 
-
-        for (string fieldPath : fieldsToLog)
-        {
-            if (!String.isBlank(fieldPath))
-                this.setLogField(fieldPath);
-        }
-
+        // populate fielPathToSettings map 
+        this.setLogFields(this.config.getFieldsToLog());
         this.setPublishingUserField(this.config.getPublishingUserField());
 
 
         // build platform_event_log and platform_event_log_field records
         for (SObject event : this.newlist)
         {
-            id publishingUser;
-            string platformEventType = event.getSobjectType().getDescribe().getName(); // maybe create a map to minimize repeated describe calls
-            platform_event_log_field__c[] fields = new list<platform_event_log_field__c>();
+            string platformEventType = this.getPlatformEventTypeName(event.getSObjectType());
+            platform_event_log_field__c[] fields = this.buildLogFieldsList(event,platformEventType);
 
-            // iterate through all fields to log
-            for (FieldSetting fs : fieldPathToSettings.values())
-            {
-                System.debug('FIELD SETTING : '+fs);
-                string field = fs.fieldPath;
-                string value;
-                map<string,object> nestedObj;
-
-                // support dot notation for valid json text fields on the platform event
-                // iterate through fields in field path to get final value
-                for (string attribute : field.split('\\.'))
-                {
-                    try {
-                        // fields in json object stored in the platform event field
-                        if (nestedObj!=null)
-                        {
-                            value = String.valueOf(nestedObj.get(attribute));
-                            if (nestedObj.get(attribute)==null || nestedObj.get(attribute) instanceof map<string,object>)
-                                nestedObj = (map<string,object>)nestedObj.get(attribute);
-                        }
-
-                        // platform event field (first field in each field path)
-                        else
-                        {
-                            try {
-                                value =  String.valueOf(event.get(attribute));
-                            } catch(SObjectException e) {
-                                System.debug(e.getMessage());
-                                System.debug(INVALID_EVENT_FIELD_MESSAGE);
-                                value = String.format(INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,platformEventType});
-                                break;
-                            }
-                            
-                            // Only parse nestedObj for fields using dot notation
-                            if (field.contains('.'))
-                                nestedObj = (map<string,object>)JSON.deserializeUntyped(value);
-                        }
-                    } catch(exception e) {
-                        System.debug(e.getMessage());
-                        System.debug(JSON_PARSE_ERROR_MESSAGE);
-                        value = JSON_PARSE_ERROR_MESSAGE;
-                        break;
-                    }
-
-                    // if part way through field path and no value is returned, break loop
-                    if (nestedObj==null)
-                        break;
-                }
-
-                // allow admin to configure what field to use to populate publishing_user__c
-                if (fs.isPublishingUserField)
-                    publishingUser = this.getUserId(value);
-
-                if (fs.isLogField)
-                    fields.add(new platform_event_log_field__c(
-                        name = field+' - '+event.get('replayid'),
-                        field_name__c = field,
-                        field_value__c = value
-                    ));
-            }
-
-            
+            // Add Platform Event Log record to list
             this.logs.add(new platform_event_log__c(
                 name = String.format(this.config.getNameFormatPlaceholder(),
                                      new list<string>{(string)event.get('replayid'),platformEventType}),
@@ -148,10 +91,84 @@ public without sharing class lpes_LogPlatformEventsService
             this.replayidToFieldLogs.put((string)event.get('replayid'),fields);
 
             // reset tmp fields
-            publishingUser = null;
+            this.publishingUser = null;
         }
 
         this.debugLimits('End Build Log List');
+    }
+
+    private list<platform_event_log_field__c> buildLogFieldsList(SObject event, String platformEventType)
+    {
+        list<platform_event_log_field__c> fields = new list<platform_event_log_field__c>();
+        // iterate through all fields to log
+        for (FieldSetting fs : fieldPathToSettings.values())
+        {
+            string value = this.getFieldValue(event,fs.fieldPath,platformEventType);
+
+            // allow admin to configure what field to use to populate publishing_user__c
+            if (fs.isPublishingUserField)
+                this.publishingUser = this.getUserId(value);
+
+            if (fs.isLogField)
+                fields.add(new platform_event_log_field__c(
+                    name = fs.fieldPath+' - '+event.get('replayid'),
+                    field_name__c = fs.fieldPath,
+                    field_value__c = value
+                ));
+        }
+
+        return fields;
+    }
+
+
+    // Iterate through all fields in field path and retrieve value
+    private string getFieldValue(sobject event, string field, string platformEventType)
+    {
+        String value; 
+        map<string,object> nestedObj;
+
+        // support dot notation for valid json text fields on the platform event
+        // iterate through fields in field path to get final value
+        for (string attribute : field.split('\\.'))
+        {
+            try {
+                // fields in json object stored in the platform event field
+                if (nestedObj!=null)
+                {
+                    value = String.valueOf(nestedObj.get(attribute));
+                    if (nestedObj.get(attribute)==null || nestedObj.get(attribute) instanceof map<string,object>)
+                        nestedObj = (map<string,object>)nestedObj.get(attribute);
+                }
+
+                // platform event field (first field in each field path)
+                else
+                {
+                    try {
+                        value =  String.valueOf(event.get(attribute));
+                    } catch(SObjectException e) {
+                        System.debug(e.getMessage());
+                        System.debug(INVALID_EVENT_FIELD_MESSAGE);
+                        value = String.format(INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,platformEventType});
+                        break;
+                    }
+                    
+                    // Only parse nestedObj for fields using dot notation
+                    if (field.contains('.'))
+                        nestedObj = (map<string,object>)JSON.deserializeUntyped(value);
+                }
+            } catch(exception e) {
+                System.debug(e.getMessage());
+                System.debug(JSON_PARSE_ERROR_MESSAGE);
+                value = JSON_PARSE_ERROR_MESSAGE;
+                break;
+            }
+
+            // if part way through field path and no value is returned, break loop
+            if (nestedObj==null)
+                break;
+        }
+
+        return value;
     }
 
 
@@ -160,7 +177,7 @@ public without sharing class lpes_LogPlatformEventsService
     {
         this.debugLimits('Start Insert Platform Event Logs');
 
-        if (test.isRunningTest() && !lpes_LogPlatformEventsServiceTest.getPerformDML())
+        if (test.isRunningTest() && !lpes_LogPlatformEventsServiceTest.getPerformDML()) // can remove
             lpes_LogPlatformEventsServiceTest.setInsertedLogs(this.logs);
         else if (this.logs.size()>0)
             insert this.logs;
@@ -203,30 +220,18 @@ public without sharing class lpes_LogPlatformEventsService
         }
     }
 
-    private void setPublishingUserField(string fieldPath)
+    private string getPlatformEventTypeName(sobjecttype eventType) 
     {
-        if (String.isBlank(fieldPath))
-            fieldPath = 'CreatedById';
+        String name = typeToName.get(eventType);
+        if (name==null)
+        {
+            name = eventType.getDescribe().getName();
+            typeToName.put(eventType,name);
+        }
 
-        FieldSetting fieldSetting = getFieldSetting(fieldPath);
-        fieldSetting.setPublishingUserField();
-        this.fieldPathToSettings.put(fieldPath,fieldSetting);
+        return name;
     }
 
-    private void setLogField(string fieldPath)
-    {
-        if (String.isBlank(fieldPath))
-            return;
-
-        FieldSetting fieldSetting = getFieldSetting(fieldPath);
-        fieldSetting.setLogField();
-        this.fieldPathToSettings.put(fieldPath,fieldSetting);
-    }
-
-    private FieldSetting getFieldSetting(string fieldPath)
-    {
-        return this.fieldPathToSettings.get(fieldPath)!=null ? this.fieldPathToSettings.get(fieldPath) : new FieldSetting(fieldPath);
-    }
 
     // can uncomment or update for logging throughout service
     private void debugLimits(string message)
@@ -234,6 +239,13 @@ public without sharing class lpes_LogPlatformEventsService
         //System.debug('lpes_LogPlatformEventsService Limits: ' + message +
         //            '\n*** CPU TIME ***: ' + Limits.getCpuTime());
     }
+
+
+
+
+    /******************************************************
+         FIELD SETTING INNER CLASS AND HELPER METHODS
+    *******************************************************/
 
 
     private class FieldSetting
@@ -257,6 +269,42 @@ public without sharing class lpes_LogPlatformEventsService
             this.isPublishingUserField=true;
         }
     }
+
+    private void setPublishingUserField(string fieldPath)
+    {
+        if (String.isBlank(fieldPath))
+            fieldPath = 'CreatedById';
+
+        FieldSetting fieldSetting = getFieldSetting(fieldPath);
+        fieldSetting.setPublishingUserField();
+        this.fieldPathToSettings.put(fieldPath,fieldSetting);
+    }
+
+    private void setLogFields(list<string> fieldsToLog)
+    {
+        for (string fieldPath : fieldsToLog)
+        {
+            if (!String.isBlank(fieldPath))
+                this.setLogField(fieldPath);
+        }
+    }
+
+    private void setLogField(string fieldPath)
+    {
+        if (String.isBlank(fieldPath))
+            return;
+
+        FieldSetting fieldSetting = getFieldSetting(fieldPath);
+        fieldSetting.setLogField();
+        this.fieldPathToSettings.put(fieldPath,fieldSetting);
+    }
+
+    private FieldSetting getFieldSetting(string fieldPath)
+    {
+        return this.fieldPathToSettings.get(fieldPath)!=null ? this.fieldPathToSettings.get(fieldPath) : new FieldSetting(fieldPath);
+    }
+
+
 
     public class PlatformEventLogException extends Exception {}
 }

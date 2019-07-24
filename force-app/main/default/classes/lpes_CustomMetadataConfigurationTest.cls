@@ -14,8 +14,12 @@
     }
 
 
-    /** PRIVATE HELPER METHODS **/
 
+
+
+    /***************************************************
+                   FAKE DATA GENERATORS
+    ****************************************************/
 
     /* 
     * Leveraging the JSON.deserialize() method allows us to work 
@@ -41,28 +45,32 @@
         }
     }    
 
+
+
+
+
+    /***************************************************
+                   PUBLIC GETTER METHODS
+    ****************************************************/
+
     public static list<Platform_Event_Log_Configuration__mdt> getEventConfigurations()
     {
         return eventConfigurations;
     }
 
 
+
+
+    /***************************************************
+                  PRIVATE HELPER METHODS
+    ****************************************************/
+
+
     // All tests are running the same core functionality, just with different config and events
     // Pulled this out to avoid duplication across all tests
     private static void doTest()
     {
-        try {
-            config = new lpes_CustomMetadataConfiguration(eventType);
-        } catch (exception e) {
-            logException = e;
-            System.debug(e.getMessage());
-            System.debug(e.getStackTraceString());
-        }
-    }
-
-    private static void assertDefaultGetResponses()
-    {
-        System.assertEquals(null, config);
+        config = new lpes_CustomMetadataConfiguration(eventType);
     }
 
     private static void assertValidConfigurationGetResponses()
@@ -75,20 +83,29 @@
         System.assertEquals(new list<string>{'JsonTextField__c'}, config.getFieldsToLog());
     }
     
+    
 
 
 
-    /** TEST METHODS **/
+    /***************************************************
+                        UNIT TESTS
+    ****************************************************/
 
-    @isTest static void noConfigurations() 
+    @isTest static void noConfigurationsDefined() 
     { 
         test.startTest();
-        doTest();
+        try {
+            doTest();
+        } catch (exception e) {
+            logException = e;
+            System.debug(e.getMessage());
+            System.debug(e.getStackTraceString());
+        }
         test.stopTest();
 
         System.assert(logException!=null);
         System.assert(logException.getMessage().contains(lpes_CustomMetadataConfiguration.NO_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
-        assertDefaultGetResponses();
+        System.assertEquals(null,config);
     }
 
     @isTest static void multipleActiveConfigurations() 
@@ -96,12 +113,18 @@
         createPlatformEventConfigurationRecords(3,'JsonTextField__c');
 
         test.startTest();
-        doTest();
+        try{
+            doTest();
+        } catch (exception e) {
+            logException = e;
+            System.debug(e.getMessage());
+            System.debug(e.getStackTraceString());
+        }
         test.stopTest();
 
         System.assert(logException!=null);
         System.assert(logException.getMessage().contains(lpes_CustomMetadataConfiguration.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
-        assertDefaultGetResponses();
+        System.assertEquals(null,config);
     }
 
     @isTest static void activeAndInactiveConfigurationsPassing() 
@@ -114,7 +137,6 @@
         doTest();
         test.stopTest();
 
-        System.assert(logException==null);
         assertValidConfigurationGetResponses();
     }
 
@@ -124,12 +146,18 @@
         eventConfigurations[0].is_active__c=false;
 
         test.startTest();
-        doTest();
+        try {
+            doTest();
+        } catch (exception e) {
+            logException = e;
+            System.debug(e.getMessage());
+            System.debug(e.getStackTraceString());
+        }
         test.stopTest();
 
         System.assert(logException!=null);
         System.assert(logException.getMessage().contains(lpes_CustomMetadataConfiguration.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
-        assertDefaultGetResponses();
+        System.assertEquals(null,config);
     }
 
 
