@@ -7,7 +7,7 @@
     <inlineHelpText>API Name of Platform Event Type</inlineHelpText>
     <label>Platform Event Type API Name</label>
     <length>255</length>
-    <required>true</required>
+    <required>false</required>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

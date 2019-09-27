@@ -1,23 +1,11 @@
 public abstract class lpes_LogPlatformEventsConfiguration implements lpes_ILogPlatformEventsConfiguration 
 {
     
-    protected boolean isLogRecords = false;
-    protected boolean isDebug = false;
     protected boolean isLogFullPayload = false;
     protected string publishingUserField = '';
     protected list<string> fieldsToLog = new list<string>();
     protected string nameFormatPlaceholder = '';
     
-
-    public virtual boolean getIsDebug()
-    {
-        return this.isDebug;
-    }
-
-    public virtual boolean getIsLogRecords()
-    {
-        return this.isLogRecords;
-    }
 
     public virtual boolean getIsLogFullPayload()
     {
@@ -39,5 +27,4 @@ public abstract class lpes_LogPlatformEventsConfiguration implements lpes_ILogPl
     {
         return this.nameFormatPlaceholder;
     }
-
 }

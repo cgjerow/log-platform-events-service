@@ -1,67 +1,31 @@
-public without sharing class lpes_LogPlatformEventsService
+public inherited sharing class lpes_PlatformEventLogFactory
 {
 
-    private final sobject[] newlist;
+    private sobject[] newlist;
     private final lpes_ILogPlatformEventsConfiguration config;
     private map<string,list<platform_event_log_field__c>> replayidToFieldLogs;
-    private platform_event_log__c[] logs;
+    private map<string,platform_event_log__c> logs;
     private list<platform_event_log_field__c> fieldlogs;
     private map<sobjecttype,string> typeToName;
     private id publishingUser;
     protected map<string,fieldsetting> fieldPathToSettings;
 
-    @testvisible private static final string JSON_PARSE_ERROR_MESSAGE;
-    @testvisible private static final string INVALID_EVENT_FIELD_MESSAGE;
-    @testvisible private static final string DISABLED_PAYLOAD_LOG_MESSSAGE;
-    @testvisible private static final string INVALID_PARAMETERS_MESSAGE;
-
-    static 
+    public lpes_PlatformEventLogFactory(lpes_ILogPlatformEventsConfiguration config)
     {
-        INVALID_PARAMETERS_MESSAGE = 'INVALID_CONSTRUCTOR_PARAMETERS: Parameters cannot be null';
-        JSON_PARSE_ERROR_MESSAGE = 'JSON_PARSE_ERROR: '+Label.lpes_json_parse_error_message;
-        INVALID_EVENT_FIELD_MESSAGE = 'INVALID_EVENT_FIELD: '+Label.lpes_invalid_event_field_message;
-        DISABLED_PAYLOAD_LOG_MESSSAGE = 'DISABLED_PAYLOAD_LOG: '+Label.lpes_disabled_payload_log_message;
-    }
-
-    public lpes_LogPlatformEventsService(list<sobject> newlist, lpes_ILogPlatformEventsConfiguration config)
-    {
-        this.debugLimits('Start Constructor');
-
-        if (newlist==null || config==null)
-            throw new PlatformEventLogException(INVALID_PARAMETERS_MESSAGE);
+        if (config==null)
+            throw new PlatformEventLogFactoryException(lpes_ExceptionMessageWrapper.INVALID_PARAMETERS_MESSAGE);
 
         this.config = config;
-        this.newlist = newlist;
-
-        // Do not need to build log list if we are not logging any records
-        if (this.config.getIsDebug() || this.config.getIsLogRecords())
-            buildLogList();
-
-        this.debugLimits('End Constructor');
     }
 
 
-
-    public void logEvents()
+    public lpes_PlatformEventLogWrapper buildLogs(list<sobject> events)
     {
-        this.debugLimits('Start Log Events');
+        if (events==null)
+            throw new PlatformEventLogFactoryException(lpes_ExceptionMessageWrapper.INVALID_PARAMETERS_MESSAGE);
 
-        if (this.config.getIsLogRecords())
-            this.insertPlatformEventLogs();
-
-        if (this.config.getIsDebug())
-            this.debugPlatformEventLogs();
-
-        this.debugLimits('End Log Events');
-    }
-
-
-
-    private void buildLogList()
-    {
-        this.debugLimits('Start Build Log List');
-
-        this.logs = new list<platform_event_log__c>();
+        this.newlist = events;
+        this.logs = new map<string,platform_event_log__c>();
         this.replayidToFieldLogs = new map<string,list<platform_event_log_field__c>>();
         this.fieldPathToSettings = new map<string,fieldsetting>();
         this.typeToName = new map<sobjecttype,string>();
@@ -78,14 +42,14 @@ public without sharing class lpes_LogPlatformEventsService
             platform_event_log_field__c[] fields = this.buildLogFieldsList(event,platformEventType);
 
             // Add Platform Event Log record to list
-            this.logs.add(new platform_event_log__c(
+            this.logs.put((string) event.get('replayid'), new platform_event_log__c(
                 name = String.format(this.config.getNameFormatPlaceholder(),
                                      new list<string>{(string)event.get('replayid'),platformEventType}),
                 replayid__c = (string)event.get('replayid'),                
                 platform_event_type__c = platformEventType,
                 publishing_user__c = (id)publishingUser,
                 platform_event_payload__c = this.config.getIsLogFullPayload() ? 
-                                            String.valueOf(event) : DISABLED_PAYLOAD_LOG_MESSSAGE
+                                            JSON.serialize(event) : lpes_ExceptionMessageWrapper.DISABLED_PAYLOAD_LOG_MESSSAGE
             ));
 
             this.replayidToFieldLogs.put((string)event.get('replayid'),fields);
@@ -94,7 +58,7 @@ public without sharing class lpes_LogPlatformEventsService
             this.publishingUser = null;
         }
 
-        this.debugLimits('End Build Log List');
+        return new lpes_PlatformEventLogWrapper(this.logs, this.replayidToFieldLogs);
     }
 
     private list<platform_event_log_field__c> buildLogFieldsList(SObject event, String platformEventType)
@@ -147,8 +111,8 @@ public without sharing class lpes_LogPlatformEventsService
                         value =  String.valueOf(event.get(attribute));
                     } catch(SObjectException e) {
                         System.debug(e.getMessage());
-                        System.debug(INVALID_EVENT_FIELD_MESSAGE);
-                        value = String.format(INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,platformEventType});
+                        System.debug(lpes_ExceptionMessageWrapper.INVALID_EVENT_FIELD_MESSAGE);
+                        value = String.format(lpes_ExceptionMessageWrapper.INVALID_EVENT_FIELD_MESSAGE, new list<string>{field,platformEventType});
                         break;
                     }
                     
@@ -158,8 +122,8 @@ public without sharing class lpes_LogPlatformEventsService
                 }
             } catch(exception e) {
                 System.debug(e.getMessage());
-                System.debug(JSON_PARSE_ERROR_MESSAGE);
-                value = JSON_PARSE_ERROR_MESSAGE;
+                System.debug(lpes_ExceptionMessageWrapper.JSON_PARSE_ERROR_MESSAGE);
+                value = lpes_ExceptionMessageWrapper.JSON_PARSE_ERROR_MESSAGE;
                 break;
             }
 
@@ -171,42 +135,6 @@ public without sharing class lpes_LogPlatformEventsService
         return value;
     }
 
-
-
-    private void insertPlatformEventLogs()
-    {
-        this.debugLimits('Start Insert Platform Event Logs');
-
-        if (test.isRunningTest() && !lpes_LogPlatformEventsServiceTest.getPerformDML()) // can remove
-            lpes_LogPlatformEventsServiceTest.setInsertedLogs(this.logs);
-        else if (this.logs.size()>0)
-            insert this.logs;
-
-        // attach field logs to parent log recor and add all to list for insert
-        this.fieldlogs = new list<platform_event_log_field__c>();
-        for (platform_event_log__c log : this.logs)
-        {
-            for (platform_event_log_field__c field : replayidToFieldLogs.get(log.replayid__c))
-            {
-                field.platform_event_log__c = log.id;
-                this.fieldlogs.add(field);
-            }
-        }
-
-        
-        if (test.isRunningTest() && !lpes_LogPlatformEventsServiceTest.getPerformDML())
-            lpes_LogPlatformEventsServiceTest.setInsertedLogFields(this.fieldLogs);
-        else if (this.fieldlogs.size()>0)
-            insert this.fieldlogs;
-
-        this.debugLimits('End Insert Platform Event Logs');
-    }
-
-    private void debugPlatformEventLogs()
-    {
-        for (platform_event_log__c log : this.logs)
-            System.debug(System.LoggingLevel.FINE, log);
-    }
 
     // Validate id string and return valid id or null
     private id getUserId(string idstring)
@@ -231,15 +159,6 @@ public without sharing class lpes_LogPlatformEventsService
 
         return name;
     }
-
-
-    // can uncomment or update for logging throughout service
-    private void debugLimits(string message)
-    {
-        //System.debug('lpes_LogPlatformEventsService Limits: ' + message +
-        //            '\n*** CPU TIME ***: ' + Limits.getCpuTime());
-    }
-
 
 
 
@@ -306,5 +225,5 @@ public without sharing class lpes_LogPlatformEventsService
 
 
 
-    public class PlatformEventLogException extends Exception {}
+    public class PlatformEventLogFactoryException extends Exception {}
 }

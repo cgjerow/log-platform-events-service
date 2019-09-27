@@ -1,18 +1,19 @@
-@isTest public class lpes_CustomMetadataConfigurationTest {
+@isTest public class CustomMetadataEventLogConfigurationTest {
     
     private static final integer count;
     private static list<Platform_Event_Log_Configuration__mdt> eventConfigurations;
     private static exception logException;
-    private static lpes_CustomMetadataConfiguration config;
+    private static CustomMetadataEventLogConfiguration config;
     private static string eventType;
+    private static string fieldName;
 
     static 
     {
         count = 250;
         eventType = 'LogPlatformEventsServiceTestEvent__e';
         eventConfigurations = new List<Platform_Event_Log_Configuration__mdt>();
+        fieldName = 'Platform_Event_Type_API_Name__c';
     }
-
 
 
 
@@ -48,7 +49,6 @@
 
 
 
-
     /***************************************************
                    PUBLIC GETTER METHODS
     ****************************************************/
@@ -70,19 +70,28 @@
     // Pulled this out to avoid duplication across all tests
     private static void doTest()
     {
-        config = new lpes_CustomMetadataConfiguration(eventType);
+        config = new CustomMetadataEventLogConfiguration(fieldName, eventType);
     }
 
     private static void assertValidConfigurationGetResponses()
     {
-        System.assert(config.getIsDebug());
+        System.assert(config.isDebug);
         System.assert(config.getIsLogFullPayload());
-        System.assert(config.getIsLogRecords());
+        System.assert(config.isLogRecords);
         System.assertEquals('JsonTextField__c.Publishing_User__c',config.getPublishingUserField());
         System.assertEquals('{1} - {0}',config.getNameFormatPlaceholder());
         System.assertEquals(new list<string>{'JsonTextField__c'}, config.getFieldsToLog());
     }
-    
+
+    private static void assertDefaultGetResponses()
+    {
+        System.assert(!config.isDebug);
+        System.assert(!config.getIsLogFullPayload());
+        System.assert(!config.isLogRecords);
+        System.assertEquals(null,config.getPublishingUserField());
+        System.assertEquals('{1} - {0}',config.getNameFormatPlaceholder());
+        System.assertEquals(new list<string>(),config.getFieldsToLog());
+    }
     
 
 
@@ -104,7 +113,7 @@
         test.stopTest();
 
         System.assert(logException!=null);
-        System.assert(logException.getMessage().contains(lpes_CustomMetadataConfiguration.NO_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
+        System.assert(logException.getMessage().contains(CustomMetadataEventLogConfiguration.NO_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
         System.assertEquals(null,config);
     }
 
@@ -123,7 +132,7 @@
         test.stopTest();
 
         System.assert(logException!=null);
-        System.assert(logException.getMessage().contains(lpes_CustomMetadataConfiguration.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
+        System.assert(logException.getMessage().contains(CustomMetadataEventLogConfiguration.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
         System.assertEquals(null,config);
     }
 
@@ -156,8 +165,50 @@
         test.stopTest();
 
         System.assert(logException!=null);
-        System.assert(logException.getMessage().contains(lpes_CustomMetadataConfiguration.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
+        System.assert(logException.getMessage().contains(CustomMetadataEventLogConfiguration.DUPLICATE_EVENT_CONFIGURATIONS_MESSAGE.split(':')[0]));
         System.assertEquals(null,config);
+    }
+
+
+    @isTest static void dynamicSoqlException() 
+    {
+        fieldName = 'failSOQL';
+
+        test.startTest();
+        try {
+            doTest();
+        } catch (exception e) {
+            logException = e;
+            System.debug(e.getMessage());
+            System.debug(e.getStackTraceString());
+        }
+        test.stopTest();
+
+        System.assert(logException!=null);
+        System.assertEquals(CustomMetadataEventLogConfiguration.DYNAMIC_SOQL_ERROR_MESSAGE,logException.getMessage());
+    }
+
+
+    @istest static void useConstructorThatTakesCustomMetadata()
+    {
+        createPlatformEventConfigurationRecords(1, 'JsonTextField__c');
+
+        test.startTest();
+        config = new CustomMetadataEventLogConfiguration(eventConfigurations[0]);
+        test.stopTest();
+
+        System.assertNotEquals(null, config);
+        assertValidConfigurationGetResponses();
+    }
+
+    
+    @istest static void useConstructorThatTakesCustomMetadataWithEmptyRecord()
+    {
+        test.startTest();
+        config = new CustomMetadataEventLogConfiguration(new platform_event_log_configuration__mdt());
+        test.stopTest();
+
+        assertDefaultGetResponses();
     }
 
 

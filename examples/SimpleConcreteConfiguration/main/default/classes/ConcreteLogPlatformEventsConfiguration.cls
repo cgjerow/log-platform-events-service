@@ -8,15 +8,13 @@
 * This is probably the simplest example of a class that supports dynamic run time configurations
 */
 
-public class lpes_ExampleConcreteConfiguration extends lpes_LogPlatformEventsConfiguration {
+public inherited sharing class ConcreteLogPlatformEventsConfiguration extends lpes_LogPlatformEventsConfiguration {
 
-    public lpes_ExampleConcreteConfiguration(
-        boolean logRecords, boolean debug, boolean logPayload,
-        string userField, list<string> logFields, string nameFormat
+    public ConcreteLogPlatformEventsConfiguration(
+        boolean logPayload, string userField, 
+        list<string> logFields, string nameFormat
     )
     {
-        this.isLogRecords = logRecords;
-        this.isDebug = debug;
         this.isLogFullPayload = logPayload;
         this.publishingUserField = userField;
         this.fieldsToLog = logFields;

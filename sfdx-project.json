@@ -3,6 +3,15 @@
     {
       "path": "force-app",
       "default": true
+    },
+    {
+      "path": "examples/SimpleConcreteConfiguration"
+    },
+    {
+      "path": "examples/SimpleTrigger"
+    },
+    {
+      "path": "examples/CustomMetadataBasedConfiguration"
     }
   ],
   "namespace": "",

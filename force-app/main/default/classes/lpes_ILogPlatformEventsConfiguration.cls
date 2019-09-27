@@ -1,10 +1,6 @@
 public interface lpes_ILogPlatformEventsConfiguration 
 {
 
-    boolean getIsDebug();
-
-    boolean getIsLogRecords();
-
     boolean getIsLogFullPayload();
 
     string getPublishingUserField();
