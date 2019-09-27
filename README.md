@@ -4,7 +4,7 @@
 This repository offers a few options for how to deploy the service and some add on functionality / examples. However, to get started is *super* easy!
 
 ### Deploy core service
-First you must deploy the core service, which resides in force-app. From there you can deploy add-ons and examples from the 
+First you must deploy the core service, which resides in force-app. From there you can deploy add-ons and examples from the examples directory. 
 
 ### Deploy Add Ons
 So you've deployed the core service, but you're thinking to yourself, "Now what? Is it running?"
